@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("../../../services/mongoose");
 
 const Student = mongoose.model(
   'Student',

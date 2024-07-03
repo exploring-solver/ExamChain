@@ -20,6 +20,13 @@ const generateKeyPair = () => {
   });
 };
 
+const encryptPrivateKey = (privateKey, secret) => {
+  const cipher = crypto.createCipheriv('aes-256-cbc', secret);
+  let encrypted = cipher.update(privateKey, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return encrypted;
+};
+
 const signUp = async (res, parameters) => {
   const {
     password,
@@ -49,11 +56,13 @@ const signUp = async (res, parameters) => {
 
       if (role === 'STUDENT') {
         const { publicKey, privateKey } = generateKeyPair();
+        const encryptedPrivateKey = encryptPrivateKey(privateKey, config.PRIVATE_KEY_SECRET);
+
         const newStudent = new Student({
           enrollmentNumber,
           name,
           publicKey,
-          privateKey,
+          encryptedPrivateKey,
         });
         await newStudent.save();
       } else if (role === 'ORGANIZATION') {

@@ -9,7 +9,6 @@ const router = express.Router();
 
 router.post(
   '/api/v1/signup',
-  validateSchemas.inputs(schemas.signUp, 'body'),
   (req, res) => {
     controller.signUp(res, req.body);
   }
@@ -17,7 +16,6 @@ router.post(
 
 router.post(
   '/api/v1/login',
-  validateSchemas.inputs(schemas.login, 'body'),
   (req, res) => {
     controller.login(res, req.body);
   }
