@@ -7,7 +7,12 @@ const schemas = {
     password: Joi.string().required(),
     passwordConfirmation: Joi.string().required(),
     name: Joi.string().required(),
-    lastName: Joi.string().required(),
+    role: Joi.string().required(),
+  }),
+
+  login: Joi.object().keys({
+    emailOrUsername: Joi.string().required(),
+    password: Joi.string().required(),
   }),
 };
 

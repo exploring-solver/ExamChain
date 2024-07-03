@@ -19,13 +19,16 @@ const encrypt = (text, secret) => {
     return `${iv.toString('hex')}:${encrypted.toString('hex')}`;
 };
 
-const storeQuestion = async (content, answer) => {
+const storeQuestion = async (content, answer, organizationId) => {
+    const organization = await Organization.findById(organizationId);
+    const secret = Buffer.from(organization.secretKey, 'hex'); // Ensure organization.secretKey is stored securely
     const encryptedContent = encrypt(content, secret);
     const encryptedAnswer = encrypt(answer, secret);
     const question = new Question({
         content: encryptedContent,
         answer: encryptedAnswer,
         encrypted: true,
+        organizationId,
     });
     await question.save();
 };
@@ -35,15 +38,16 @@ const decrypt = (text, secret) => {
     let decrypted = decipher.update(Buffer.from(encryptedText, 'hex'));
     decrypted = Buffer.concat([decrypted, decipher.final()]);
     return decrypted.toString();
-};
-
-const decryptQuestions = async (shares) => {
-    const combinedKey = sss.combine(shares.map(share => Buffer.from(share, 'hex')));
-    const questions = await Question.find({ encrypted: true });
+  };
+  
+  const decryptQuestionsForExam = async (organizationId) => {
+    const organization = await Organization.findById(organizationId);
+    const secret = Buffer.from(organization.secretKey, 'hex'); // Ensure organization.secretKey is stored securely
+    const questions = await Question.find({ organizationId, encrypted: true });
     questions.forEach(question => {
-        question.content = decrypt(question.content, combinedKey);
-        question.answer = decrypt(question.answer, combinedKey);
-        question.encrypted = false;
-        question.save();
+      question.content = decrypt(question.content, secret);
+      question.answer = decrypt(question.answer, secret);
+      question.encrypted = false;
+      question.save();
     });
-};
+  };
