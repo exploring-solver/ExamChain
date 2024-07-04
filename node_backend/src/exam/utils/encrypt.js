@@ -18,3 +18,4 @@ const storeQuestion = async (content, answer) => {
   });
   await question.save();
 };
+

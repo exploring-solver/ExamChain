@@ -37,7 +37,7 @@ const signUp = async (res, parameters) => {
     lastName,
     role,
     enrollmentNumber, // specific to student
-    organizationId, // specific to organization
+    id, // specific to organization
     share, // specific to organization
   } = parameters;
 
@@ -68,16 +68,15 @@ const signUp = async (res, parameters) => {
       } else if (role === 'ORGANIZATION') {
         const { publicKey } = generateKeyPair();
         const newOrganization = new Organization({
-          organizationId,
+          id,
           name,
-          publicKey,
           share,
         });
         await newOrganization.save();
       }
 
       const token = jwt.sign(
-        { email, id: savedUser.id, username },
+        { email, id: savedUser.id, username ,role:savedUser.role},
         config.API_KEY_JWT,
         { expiresIn: config.TOKEN_EXPIRES_IN }
       );
@@ -148,7 +147,7 @@ const login = async (res, parameters) => {
 
     // Generate and return a JWT token
     const token = jwt.sign(
-      { email: user.email, id: user.id, username: user.username },
+      { email: user.email, id: user.id, username: user.username , role: user.role},
       config.API_KEY_JWT,
       { expiresIn: config.TOKEN_EXPIRES_IN }
     );

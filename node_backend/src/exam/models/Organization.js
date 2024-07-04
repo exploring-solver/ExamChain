@@ -1,25 +1,24 @@
-const mongoose = require("../../../services/mongoose");
+const mongoose = require('../../../services/mongoose');
 
 const Organization = mongoose.model(
   'Organization',
   {
-    organizationId: {
+    id: {
       type: String,
       required: true,
       unique: true,
     },
-    name: String,
-    publicKey: {
+    name: {
       type: String,
       required: true,
       unique: true,
     },
     share: {
       type: String,
-      required: true,
+      // required: true,
     },
   },
-  'organizations'
+  'organizations',
 );
 
 module.exports = {
