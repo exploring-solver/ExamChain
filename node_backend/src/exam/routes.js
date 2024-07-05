@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { checkIfOrganization, checkIfAuthenticated, checkIfAdmin } = require('../../middlewares/validateAuth');
-const { createQuestion, decryptQuestion } = require('./controller/question');
+const { createQuestion, decryptQuestion, decryptAllQuestions } = require('./controller/question');
 const { decryptQuestionsIfThresholdMet } = require('./controller/submit-share');
 const { createExam, submitShare } = require('./controller/exam');
 
@@ -17,6 +17,7 @@ router.post('/api/v2/secrets/submit-share', checkIfAuthenticated, checkIfOrganiz
 router.post('/api/v2/secrets/decrypt-questions', checkIfAuthenticated, checkIfOrganization, decryptQuestionsIfThresholdMet);
 
 router.post('/create-exam', checkIfAdmin, createExam);
+router.post('/api/v2/question/decrypt-all', checkIfOrganization, decryptAllQuestions);
 
 // TODO: delete a question
 

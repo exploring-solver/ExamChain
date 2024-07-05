@@ -9,11 +9,6 @@ const encrypt = (text, key) => {
 };
 
 const decrypt = (encryptedContent, key) => {
-  // Ensure the key is 32 bytes (64 hex characters)
-  if (key.length !== 64) { 
-    throw new Error('Invalid key length');
-  }
-
   const keyBuffer = Buffer.from(key, 'hex');
   const ivBuffer = Buffer.from(encryptedContent.slice(0, 32), 'hex'); // First 32 hex chars (16 bytes) for IV
   const encryptedText = encryptedContent.slice(32); // Remaining chars for the encrypted content
@@ -24,6 +19,5 @@ const decrypt = (encryptedContent, key) => {
 
   return decrypted;
 };
-
 
 module.exports = { encrypt, decrypt };

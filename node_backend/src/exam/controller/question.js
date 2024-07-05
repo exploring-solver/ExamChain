@@ -9,7 +9,6 @@ const createQuestion = async (req, res) => {
   try {
     const encryptionKeyHex = crypto.createHash('sha256').update(encryptionKey).digest('hex');
 
-    // Encrypt the content, options, and answer using the provided encryptionKey
     const encryptedContent = encrypt(content, encryptionKeyHex);
     const encryptedOptions = {
       a: encrypt(options.a, encryptionKeyHex),
@@ -40,20 +39,18 @@ const decryptQuestion = async (req, res) => {
 
   try {
     const decryptionKeyHex = crypto.createHash('sha256').update(decryptionKey).digest('hex');
-
     const question = await Question.findById(questionId);
 
     if (!question) {
       return res.status(404).json({ status: 404, message: 'Question not found' });
     }
 
-    // Decrypt the content, options, and answer using the provided decryptionKey
     const decryptedContent = decrypt(question.content, decryptionKeyHex);
     const decryptedOptions = {
-      a: decrypt(question.options.get('a'), decryptionKeyHex),
-      b: decrypt(question.options.get('b'), decryptionKeyHex),
-      c: decrypt(question.options.get('c'), decryptionKeyHex),
-      d: decrypt(question.options.get('d'), decryptionKeyHex),
+      a: decrypt(question.options.a, decryptionKeyHex),
+      b: decrypt(question.options.b, decryptionKeyHex),
+      c: decrypt(question.options.c, decryptionKeyHex),
+      d: decrypt(question.options.d, decryptionKeyHex),
     };
     const decryptedAnswer = decrypt(question.answer, decryptionKeyHex);
 
@@ -69,7 +66,56 @@ const decryptQuestion = async (req, res) => {
   }
 };
 
+const decryptAllQuestions = async (req, res) => {
+  const { organizationId, examId, decryptionKey } = req.body;
+
+  try {
+    const decryptionKeyHex = crypto.createHash('sha256').update(decryptionKey).digest('hex');
+    const questions = await Question.find({
+      organizationId: mongoose.Types.ObjectId(organizationId),
+      examId: mongoose.Types.ObjectId(examId),
+      encrypted: true,
+    });
+
+    const decryptedQuestions = questions.map((question) => {
+      const decryptedContent = decrypt(question.content, decryptionKeyHex);
+      const decryptedOptions = {
+        a: decrypt(question.options.a, decryptionKeyHex),
+        b: decrypt(question.options.b, decryptionKeyHex),
+        c: decrypt(question.options.c, decryptionKeyHex),
+        d: decrypt(question.options.d, decryptionKeyHex),
+      };
+      const decryptedAnswer = decrypt(question.answer, decryptionKeyHex);
+
+      return {
+        id: question.id,
+        content: decryptedContent,
+        options: decryptedOptions,
+        answer: decryptedAnswer,
+        organizationId: question.organizationId,
+        examId: question.examId,
+      };
+    });
+
+    await Promise.all(
+      decryptedQuestions.map((decryptedQuestion) =>
+        Question.findByIdAndUpdate(decryptedQuestion.id, {
+          content: decryptedQuestion.content,
+          options: decryptedQuestion.options,
+          answer: decryptedQuestion.answer,
+          encrypted: false,
+        })
+      )
+    );
+
+    return res.status(200).json({ message: 'All questions decrypted successfully', decryptedQuestions });
+  } catch (error) {
+    return res.status(500).json({ status: 500, message: 'Internal server error', error });
+  }
+};
+
 module.exports = {
   createQuestion,
   decryptQuestion,
+  decryptAllQuestions,
 };
