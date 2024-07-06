@@ -5,6 +5,12 @@ import Footer from './components/standard/Footer';
 import Home from './components/standard/Home';
 import About from './components/standard/About';
 import Contact from './components/standard/Contact';
+import StudentLogin from './components/Exam/StudentLogin';
+import NotFound from './components/standard/NotFound';
+import OrganizationLogin from './components/Organization/OrganizationLogin';
+import { AdminLogin } from './components/Admin/AdminLogin';
+import AdminDashboard from './components/Admin/AdminDashboard';
+import OrganizationDashboard from './components/Organization/OrganizationDashboard';
 
 const App = () => {
   return (
@@ -15,6 +21,12 @@ const App = () => {
             <Route path="/" element={<Home />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/student" element={<StudentLogin />} />
+            <Route path="/organization" element={<OrganizationLogin />} />
+            <Route path="/admin" element={<AdminLogin />} />
+            <Route path="/admin-dashboard" element={<AdminDashboard />} />
+            <Route path="/org-dashboard" element={<OrganizationDashboard />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
         <Footer />

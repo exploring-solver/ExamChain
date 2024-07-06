@@ -11,14 +11,9 @@ const Student = mongoose.model(
     name: String,
     publicKey: {
       type: String,
-      required: true,
       unique: true,
     },
-    privateKey: {
-      type: String,
-      required: true,
-      unique: true,
-    },
+    examId: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam', required: true },
   },
   'students'
 );

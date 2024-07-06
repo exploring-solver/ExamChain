@@ -70,7 +70,6 @@ const signUp = async (res, parameters) => {
         const newOrganization = new Organization({
           id,
           name,
-          share,
         });
         await newOrganization.save();
       }

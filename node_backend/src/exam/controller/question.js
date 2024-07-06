@@ -114,8 +114,85 @@ const decryptAllQuestions = async (req, res) => {
   }
 };
 
+// Controller to get all questions
+const getAllQuestions = async (req, res) => {
+  try {
+    const questions = await Question.find();
+    return res.status(200).json(questions);
+  } catch (error) {
+    return res.status(500).json({ status: 500, message: 'Internal server error', error });
+  }
+};
+
+// Controller to get questions by exam ID
+const getQuestionsByExamId = async (req, res) => {
+  const { examId } = req.params;
+
+  try {
+    const questions = await Question.find({ examId: mongoose.Types.ObjectId(examId) });
+    if (questions.length === 0) {
+      return res.status(404).json({ status: 404, message: 'No questions found for this exam' });
+    }
+    return res.status(200).json(questions);
+  } catch (error) {
+    return res.status(500).json({ status: 500, message: 'Internal server error', error });
+  }
+};
+
+// Controller to get questions by exam ID
+const getQuestionsByOrganizationId = async (req, res) => {
+  const { organizationId } = req.params;
+
+  try {
+    const questions = await Question.find({ examId: mongoose.Types.ObjectId(organizationId) });
+    if (questions.length === 0) {
+      return res.status(404).json({ status: 404, message: 'No questions found for this organization' });
+    }
+    return res.status(200).json(questions);
+  } catch (error) {
+    return res.status(500).json({ status: 500, message: 'Internal server error', error });
+  }
+};
+
+// Controller to get a question by its ID
+const getQuestionById = async (req, res) => {
+  const { questionId } = req.params;
+
+  try {
+    const question = await Question.findById(questionId);
+    if (!question) {
+      return res.status(404).json({ status: 404, message: 'Question not found' });
+    }
+    return res.status(200).json(question);
+  } catch (error) {
+    return res.status(500).json({ status: 500, message: 'Internal server error', error });
+  }
+};
+
+const deleteQuestionById = async (req, res) => {
+  const { questionId } = req.params;
+
+  try {
+    const question = await Question.findByIdAndDelete(questionId);
+
+    if (!question) {
+      return res.status(404).json({ status: 404, message: 'Question not found' });
+    }
+
+    return res.status(200).json({ message: 'Question deleted successfully' });
+  } catch (error) {
+    return res.status(500).json({ status: 500, message: 'Internal server error', error });
+  }
+};
+
+
 module.exports = {
   createQuestion,
   decryptQuestion,
   decryptAllQuestions,
+  getAllQuestions,
+  getQuestionsByExamId,
+  getQuestionsByOrganizationId,
+  getQuestionById,
+  deleteQuestionById
 };

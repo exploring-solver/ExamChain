@@ -70,7 +70,7 @@ const createExam = async (req, res) => {
 
 // Submit a share and decryption key
 const submitShare = async (req, res) => {
-  const { examId, organizationId, share, decryptionKey } = req.body;
+  const { examId, organizationId, share } = req.body;
 
   try {
     const exam = await Exam.findById(examId);
@@ -99,19 +99,6 @@ const submitShare = async (req, res) => {
       const decryptedContent = decrypt(exam.encryptedContent, secretKey);
       console.log('Decrypted Content:', decryptedContent);
 
-      // Decrypt all questions related to this exam
-      const questions = await Question.find({ organizationId });
-      for (let question of questions) {
-        question.content = decrypt(question.content, decryptionKey);
-        question.options.a = decrypt(question.options.a, decryptionKey);
-        question.options.b = decrypt(question.options.b, decryptionKey);
-        question.options.c = decrypt(question.options.c, decryptionKey);
-        question.options.d = decrypt(question.options.d, decryptionKey);
-        question.answer = decrypt(question.answer, decryptionKey);
-        question.encrypted = false;
-        await question.save();
-      }
-
       // Update the exam as decrypted and store decrypted content
       exam.isDecrypted = true;
       exam.decryptedContent = decryptedContent;
@@ -127,7 +114,28 @@ const submitShare = async (req, res) => {
   }
 };
 
+//TO share the questions with the answer given to the db with encryption and signed by their private key with their enrollment number
+
+
+// Result calculator
+
+//results getter
+
+//upload the csv or excel file of roll numbers
+
+
+// Get all exams
+const getExams = async (req, res) => {
+  try {
+    const exams = await Exam.find();
+    res.status(200).json(exams);
+  } catch (error) {
+    res.status(500).json({ status: 500, message: 'Internal server error', error });
+  }
+};
+
 module.exports = {
   createExam,
   submitShare,
+  getExams
 };
