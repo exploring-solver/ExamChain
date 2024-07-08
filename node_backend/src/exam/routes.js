@@ -6,6 +6,7 @@ const { decryptQuestionsIfThresholdMet } = require('./controller/submit-share');
 const { createExam, submitShare, getExams } = require('./controller/exam');
 const { calculateResults, submitAnswers } = require('./controller/answer');
 const { getAllOrganizations, deleteOrganization } = require('./controller/organization');
+const { createStudents } = require('./controller/student');
 
 
 router.post('/api/v2/question/create', checkIfOrganization, createQuestion);
@@ -17,6 +18,9 @@ router.post('/api/v2/secrets/decrypt-questions', checkIfAuthenticated, checkIfOr
 
 router.post('/create-exam', checkIfAdmin, createExam);
 router.post('/api/v2/question/decrypt-all', checkIfOrganization, decryptAllQuestions);
+
+//create students
+router.post('/create-students', createStudents);
 
 //get all exams
 router.get('/exams', getExams);

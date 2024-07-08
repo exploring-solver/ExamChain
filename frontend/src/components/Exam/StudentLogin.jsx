@@ -1,21 +1,93 @@
-import React from 'react'
+import React from 'react';
 import {
     Card,
     Input,
-    Checkbox,
     Button,
     Typography,
 } from "@material-tailwind/react";
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import config from '../../config';
+
 const StudentLogin = () => {
+    const navigate = useNavigate();
 
-    //todo: login and generate the public and private key pair where username is enrollment number and password is given but the private and public key is genrated upon login
+    const generateKeyPair = async () => {
+        const { publicKey, privateKey } = await crypto.subtle.generateKey(
+            {
+                name: "RSA-PSS",
+                modulusLength: 2048,
+                publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+                hash: "SHA-256"
+            },
+            true,
+            ["sign", "verify"]
+        );
 
-    //navigate to exam window
+        const exportedPublicKey = await crypto.subtle.exportKey("spki", publicKey);
+        const exportedPrivateKey = await crypto.subtle.exportKey("pkcs8", privateKey);
+
+        const publicKeyBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(exportedPublicKey)));
+        const privateKeyBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(exportedPrivateKey)));
+
+        console.log("keys: ", privateKeyBase64, publicKeyBase64);
+        localStorage.setItem('privateKey', privateKeyBase64);
+
+        return publicKeyBase64;
+    };
+
+    const sendPublicKeyToServer = async (publicKey) => {
+        try {
+            await axios.post(`${config.baseURL}/users/api/v1/save-public-key`, { publicKey }, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`, // Include the token from localStorage
+                },
+            });
+        } catch (error) {
+            console.error('Error sending public key:', error);
+        }
+    };
+
+    const handleLogin = async (event) => {
+        event.preventDefault();
+
+        const emailOrUsername = event.target.emailOrUsername.value;
+        const password = event.target.password.value;
+
+        try {
+            // Assuming you have a route like /student-details that provides userId
+            const studentDetailsResponse = await axios.get(`${config.baseURL}/users/api/v1/student-details`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                },
+            });
+
+            const { enrollmentNumber } = studentDetailsResponse.data;
+
+            const loginResponse = await axios.post(`${config.baseURL}/users/api/v1/login`, {
+                emailOrUsername,
+                password,
+            });
+
+            const { token } = loginResponse.data;
+
+            if (token) {
+                localStorage.setItem('token', token);
+
+                const publicKey = await generateKeyPair();
+                await sendPublicKeyToServer(publicKey);
+
+                navigate('/exam-window');
+            } else {
+                console.error('Login failed');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    };
 
     return (
-
-        //add here logic to select your exam and then login with creds
-
         <div className="w-[90%] m-auto flex justify-center py-2 ">
             <Card color="transparent" shadow={false}>
                 <Typography variant="h4" color="blue-gray">
@@ -24,12 +96,13 @@ const StudentLogin = () => {
                 <Typography color="gray" className="mt-1 font-normal">
                     Nice to meet you! Enter your details to login.
                 </Typography>
-                <form className="mt-8 mb-2 w-80 max-w-screen-lg sm:w-96">
+                <form className="mt-8 mb-2 w-80 max-w-screen-lg sm:w-96" onSubmit={handleLogin}>
                     <div className="mb-1 flex flex-col gap-6">
                         <Typography variant="h6" color="blue-gray" className="-mb-3">
                             Username/Email
                         </Typography>
                         <Input
+                            name="emailOrUsername"
                             size="lg"
                             placeholder="name@mail.com or username"
                             className=" !border-t-blue-gray-200 focus:!border-t-gray-900"
@@ -41,6 +114,7 @@ const StudentLogin = () => {
                             Password
                         </Typography>
                         <Input
+                            name="password"
                             type="password"
                             size="lg"
                             placeholder="********"
@@ -50,13 +124,13 @@ const StudentLogin = () => {
                             }}
                         />
                     </div>
-                    <Button className="mt-6" fullWidth>
+                    <Button type="submit" className="mt-6" fullWidth>
                         Log In
                     </Button>
                 </form>
             </Card>
         </div>
-    )
-}
+    );
+};
 
-export default StudentLogin
+export default StudentLogin;

@@ -37,6 +37,7 @@ const signUp = async (res, parameters) => {
     lastName,
     role,
     enrollmentNumber, // specific to student
+    examId, // specific to student
     id, // specific to organization
     share, // specific to organization
   } = parameters;
@@ -55,18 +56,16 @@ const signUp = async (res, parameters) => {
       const savedUser = await newUser.save();
 
       if (role === 'STUDENT') {
-        const { publicKey, privateKey } = generateKeyPair();
-        const encryptedPrivateKey = encryptPrivateKey(privateKey, config.PRIVATE_KEY_SECRET);
+        // const { publicKey, privateKey } = generateKeyPair();
+        // const encryptedPrivateKey = encryptPrivateKey(privateKey, config.PRIVATE_KEY_SECRET);
 
         const newStudent = new Student({
           enrollmentNumber,
           name,
-          publicKey,
-          encryptedPrivateKey,
+          examId
         });
         await newStudent.save();
       } else if (role === 'ORGANIZATION') {
-        const { publicKey } = generateKeyPair();
         const newOrganization = new Organization({
           id,
           name,
@@ -160,8 +159,25 @@ const login = async (res, parameters) => {
   }
 };
 
+const getStudentDetails = async (username) => {
+  try {
+    // Assuming you have a relationship between User and Student models
+    const student = await Student.findOne({ username }).populate('examId');
+
+    if (!student) {
+      throw new Error('Student not found');
+    }
+
+    return student;
+  } catch (error) {
+    throw new Error(`Error fetching student details: ${error.message}`);
+  }
+};
+
+
 module.exports = {
   signUp,
   login,
   userDetails,
+  getStudentDetails
 };

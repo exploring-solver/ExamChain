@@ -34,7 +34,7 @@
     "express": "^4.19.2",
     "express-ip": "^1.0.4",
     "jsonwebtoken": "^8.5.1",
-    "mongoose": "^5.13.22",
+    "mongoose": "^8.4.5",
     "shamirs-secret-sharing": "^2.0.0"
   },
   "devDependencies": {
