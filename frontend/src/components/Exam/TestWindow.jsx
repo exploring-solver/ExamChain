@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
+import config from '../../config';
 
 const TestWindow = () => {
   const { examId } = useParams();
@@ -33,7 +34,7 @@ const TestWindow = () => {
 
   const handleSubmitExam = () => {
     // Submit the answers to the backend
-    axios.post(`http://localhost:5000/exam/submit`, { examId, answers })
+    axios.post(`${config.baseURL}/exam/submit`, { examId, answers })
       .then(response => {
         console.log("Exam submitted:", response.data);
       })

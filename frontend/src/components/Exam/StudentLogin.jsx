@@ -32,16 +32,20 @@ const StudentLogin = () => {
 
         console.log("keys: ", privateKeyBase64, publicKeyBase64);
         localStorage.setItem('privateKey', privateKeyBase64);
+        localStorage.setItem('publicKey', publicKeyBase64);
 
         return publicKeyBase64;
     };
 
-    const sendPublicKeyToServer = async (publicKey) => {
+    const sendPublicKeyToServer = async (publicKey, enrollmentNumber) => {
         try {
-            await axios.post(`${config.baseURL}/users/api/v1/save-public-key`, { publicKey }, {
+            await axios.post(`${config.baseURL}/users/api/v1/save-public-key`, {
+                publicKey,
+                enrollmentNumber,
+            }, {
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`, // Include the token from localStorage
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
                 },
             });
         } catch (error) {
@@ -56,15 +60,7 @@ const StudentLogin = () => {
         const password = event.target.password.value;
 
         try {
-            // Assuming you have a route like /student-details that provides userId
-            const studentDetailsResponse = await axios.get(`${config.baseURL}/users/api/v1/student-details`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                },
-            });
-
-            const { enrollmentNumber } = studentDetailsResponse.data;
-
+            // Log in the user
             const loginResponse = await axios.post(`${config.baseURL}/users/api/v1/login`, {
                 emailOrUsername,
                 password,
@@ -75,9 +71,31 @@ const StudentLogin = () => {
             if (token) {
                 localStorage.setItem('token', token);
 
-                const publicKey = await generateKeyPair();
-                await sendPublicKeyToServer(publicKey);
+                // Get user details
+                const userDetailsResponse = await axios.get(`${config.baseURL}/users/api/v1/user/details`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
 
+                const { username } = userDetailsResponse.data.user;
+
+                // Get student details
+                const studentDetailsResponse = await axios.get(`${config.baseURL}/users/api/v1/student-details/${username}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+
+                const { enrollmentNumber } = studentDetailsResponse.data;
+                localStorage.setItem('username', username);
+                localStorage.setItem('enrollmentNumber', enrollmentNumber);
+
+                // Generate key pair and send public key to server
+                const publicKey = await generateKeyPair();
+                await sendPublicKeyToServer(publicKey, enrollmentNumber);
+
+                // Navigate to exam window
                 navigate('/exam-window');
             } else {
                 console.error('Login failed');

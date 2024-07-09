@@ -1,38 +1,13 @@
-const mongoose = require('../../../services/mongoose');
+const mongoose = require('mongoose');
 
-const Answer = mongoose.model(
-  'Answer',
-  {
-    questionId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Question',
-      required: true,
-    },
-    studentId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Student',
-      required: true,
-    },
-    answer: {
-      type: String,
-      required: true,
-    },
-    signature: {
-      type: String,
-      required: true,
-    },
-    publicKey: {
-      type: String,
-      required: true,
-    },
-    timestamp: {
-      type: Date,
-      default: Date.now,
-    },
-  },
-  'answers'
-);
+const answerSchema = new mongoose.Schema({
+  questionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Question', required: true },
+  studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
+  answer: { type: String, required: true },
+  signature: { type: String, required: true },
+  publicKey: { type: String, required: true },
+});
 
-module.exports = {
-  Answer,
-};
+const Answer = mongoose.model('Answer', answerSchema);
+
+module.exports = Answer;

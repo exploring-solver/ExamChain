@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Card,
-  Button,
-  Typography,
-} from "@material-tailwind/react";
+import { useNavigate } from 'react-router-dom';
+import { Card, Button, Typography } from "@material-tailwind/react";
 import axios from 'axios';
 import config from '../../config';
 
 const ExamScreen = () => {
   const [exams, setExams] = useState([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchExams = async () => {
@@ -24,9 +22,7 @@ const ExamScreen = () => {
   }, []);
 
   const handleStartExam = (examId) => {
-    // Logic to start the exam
-    console.log(`Starting exam with ID: ${examId}`);
-    // Navigate to the exam page or do something else
+    navigate(`/test/${examId}`);
   };
 
   return (

@@ -69,11 +69,11 @@ router.post(
   }
 );
 
-router.get('/api/v1/student-details/:userId', async (req, res) => {
-  const { userId } = req.params;
+router.get('/api/v1/student-details/:username', async (req, res) => {
+  const { username } = req.params;
 
   try {
-    const student = await controller.getStudentDetails(userId);
+    const student = await controller.getStudentDetails(username);
     res.status(200).json(student);
   } catch (error) {
     console.error('Error:', error);

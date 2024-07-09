@@ -11,9 +11,10 @@ import OrganizationLogin from './components/Organization/OrganizationLogin';
 import { AdminLogin } from './components/Admin/AdminLogin';
 import AdminDashboard from './components/Admin/AdminDashboard';
 import OrganizationDashboard from './components/Organization/OrganizationDashboard';
-import ExamScreen from './components/Exam/ExamScreen';
 import TestWindow from './components/Exam/TestWindow';
 import GuidelinesPage from './components/Exam/GuidelinesPage';
+import ExamPage from './components/Exam/ExamPage';
+import ExamScreen from './components/Exam/ExamScreen';
 
 const App = () => {
   return (
@@ -31,7 +32,8 @@ const App = () => {
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/org-dashboard" element={<OrganizationDashboard />} />
           <Route path="/guidelines/:examId" element={<GuidelinesPage />} />
-          <Route path="/exam/:examId" element={<TestWindow />} />
+          {/* <Route path="/exam/:examId" element={<TestWindow />} /> */}
+          <Route path="/test/:examId" element={<ExamPage/>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
