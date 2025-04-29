@@ -24,7 +24,7 @@ const createOrganizationsWithShares = async () => {
 
   console.log('Organizations created with secret shares');
 };
-
+createOrganizationsWithShares();
 module.exports = {
     createOrganizationsWithShares
 }
