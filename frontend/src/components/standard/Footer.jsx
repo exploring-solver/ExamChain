@@ -7,7 +7,7 @@ function Footer() {
         <p>Made with ❤️</p>
         <p>© {new Date().getFullYear()} ExamChain - All rights reserved</p>
       </div>
-    </footer>
+    </footer> 
   );
 }
 
