@@ -3,9 +3,9 @@ const router = express.Router();
 const { checkIfOrganization, checkIfAuthenticated, checkIfAdmin } = require('../../middlewares/validateAuth');
 const { createQuestion, decryptQuestion, decryptAllQuestions, getAllQuestions, getQuestionsByExamId, getQuestionById, getQuestionsByOrganizationId, deleteQuestionById } = require('./controller/question');
 const { decryptQuestionsIfThresholdMet } = require('./controller/submit-share');
-const { createExam, submitShare, getExams } = require('./controller/exam');
+const { createExam, submitShare, getExams, getExamStats, getExamById, updateExam, deleteExam, toggleExamDecryption } = require('./controller/exam');
 const { calculateResults, submitAnswers } = require('./controller/answer');
-const { getAllOrganizations, deleteOrganization } = require('./controller/organization');
+const { getAllOrganizations, deleteOrganization, getOrganizationStats, getOrganizationById, createOrganization, updateOrganization, clearOrganizationShare, bulkDeleteOrganizations } = require('./controller/organization');
 const { createStudents } = require('./controller/student');
 
 
@@ -24,17 +24,48 @@ router.post('/create-students', createStudents);
 
 //get all exams
 router.get('/exams', getExams);
+router.get('/exams/stats', getExamStats);
 
+// GET /exam/exams/:id - Get specific exam by ID
+router.get('/exams/:id', getExamById);
+
+// PUT /exam/exams/:id - Update an exam
+router.put('/exams/:id', updateExam);
+
+// DELETE /exam/exams/:id - Delete an exam
+router.delete('/exams/:id', deleteExam);
+
+// PATCH /exam/exams/:id/toggle-decryption - Toggle exam decryption status
+router.patch('/exams/:id/toggle-decryption', toggleExamDecryption);
 // TODO: submit an answer in queue
 router.post('/submit', submitAnswers);
 // TODO: answer calculator in theory works as a gate for blockchain
 router.post('/calculate-results', calculateResults);
 
-// Route to get all organizations
+// GET /exam/organizations - Get all organizations
 router.get('/organizations', getAllOrganizations);
 
-// Route to delete an organization by ID
+// GET /exam/organizations/stats - Get organization statistics
+router.get('/organizations/stats', getOrganizationStats);
+
+
+// GET /exam/organizations/:id - Get specific organization by ID
+router.get('/organizations/:id', getOrganizationById);
+
+// POST /exam/organizations - Create a new organization
+router.post('/organizations', createOrganization);
+
+// PUT /exam/organizations/:id - Update an organization
+router.put('/organizations/:id', updateOrganization);
+
+// DELETE /exam/organizations/:id - Delete an organization
 router.delete('/organizations/:id', deleteOrganization);
+
+// PATCH /exam/organizations/:id/clear-share - Clear organization share
+router.patch('/organizations/:id/clear-share', clearOrganizationShare);
+
+// POST /exam/organizations/bulk-delete - Bulk delete organizations
+router.post('/organizations/bulk-delete', bulkDeleteOrganizations);
 
 // Getting questions
 router.get('/questions', getAllQuestions);

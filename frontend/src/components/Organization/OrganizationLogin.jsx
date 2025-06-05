@@ -31,14 +31,51 @@ const OrganizationLogin = () => {
             .then(response => response.json())
             .then(data => {
                 if (data.token) {
+                    // Store token
                     localStorage.setItem('token', data.token);
+                    
+                    // Store user details
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    // Store organization details if they exist
+                    if (data.organizationDetails) {
+                        // Store complete organization details
+                        localStorage.setItem('organizationDetails', JSON.stringify(data.organizationDetails));
+                        
+                        // Store organization ID in multiple formats for compatibility
+                        localStorage.setItem('organizationId', data.organizationDetails._id);
+                        localStorage.setItem('orgId', data.organizationDetails._id);
+                        localStorage.setItem('user_organization_id', data.organizationDetails._id);
+                        
+                        // Store the UUID id as well (the custom id field)
+                        if (data.organizationDetails.id) {
+                            localStorage.setItem('organizationUUID', data.organizationDetails.id);
+                        }
+                        
+                        // Store organization name for easy access
+                        localStorage.setItem('organizationName', data.organizationDetails.name);
+                        
+                        console.log('Organization details stored:', {
+                            _id: data.organizationDetails._id,
+                            id: data.organizationDetails.id,
+                            name: data.organizationDetails.name
+                        });
+                    }
+                    
+                    // Store student details if they exist (for future use)
+                    if (data.studentDetails) {
+                        localStorage.setItem('studentDetails', JSON.stringify(data.studentDetails));
+                    }
+                    
                     navigate('/org-dashboard');
                 } else {
-                    console.error('Login failed');
+                    console.error('Login failed:', data.message || 'Unknown error');
+                    // You might want to show an error message to the user here
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
+                // You might want to show an error message to the user here
             });
     };
 

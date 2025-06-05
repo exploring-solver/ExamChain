@@ -12,26 +12,25 @@ import {
   DialogBody,
   DialogFooter,
   Alert,
+  Chip,
 } from '@material-tailwind/react';
+import {
+  TrashIcon,
+  KeyIcon,
+  PencilIcon,
+  EyeIcon,
+} from '@heroicons/react/24/outline';
 import config from '../../config';
 import TruncatedShare from '../Utils/TruncatedShare';
 
-
-
-function TrashIcon() {
+function ShareStatusBadge({ hasShare }) {
   return (
-    <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    className="h-5 w-5"
-    >
-      <path
-        fillRule="evenodd"
-        d="M16.5 4.478v.227a48.816 48.816 0 013.878.512.75.75 0 11-.256 1.478l-.209-.035-1.005 13.07a3 3 0 01-2.991 2.77H8.084a3 3 0 01-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 01-.256-1.478A48.567 48.567 0 017.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 013.369 0c1.603.051 2.815 1.387 2.815 2.951zm-6.136-1.452a51.196 51.196 0 013.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 00-6 0v-.113c0-.794.609-1.428 1.364-1.452zm-.355 5.945a.75.75 0 10-1.5.058l.347 9a.75.75 0 101.499-.058l-.346-9zm5.48.058a.75.75 0 10-1.498-.058l-.347 9a.75.75 0 001.5.058l.345-9z"
-        clipRule="evenodd"
-        />
-    </svg>
+    <Chip
+      value={hasShare ? "Has Share" : "No Share"}
+      color={hasShare ? "green" : "gray"}
+      size="sm"
+      icon={<KeyIcon className="h-3 w-3" />}
+    />
   );
 }
 
@@ -40,7 +39,18 @@ export function OrganizationList() {
   const [selectedOrganization, setSelectedOrganization] = useState(null);
   const [open, setOpen] = useState(false);
   const [alert, setAlert] = useState(null);
+  const [loading, setLoading] = useState(false);
   
+  // Auto-hide alert after 5 seconds
+  useEffect(() => {
+    if (alert) {
+      const timer = setTimeout(() => {
+        setAlert(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [alert]);
+
   const confirmDelete = (id) => {
     if (window.confirm('Are you sure you want to delete this organization?')) {
       handleDelete(id);
@@ -48,28 +58,45 @@ export function OrganizationList() {
   };
 
   useEffect(() => {
-    async function fetchOrganizations() {
-      try {
-        const response = await fetch(`${config.baseURL}/exam/organizations`);
-        const data = await response.json();
-        setOrganizations(data);
-      } catch (error) {
-        console.error('Error fetching organizations:', error);
-      }
-    }
-
     fetchOrganizations();
   }, []);
+
+  const fetchOrganizations = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${config.baseURL}/exam/organizations`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setOrganizations(data);
+      } else {
+        throw new Error('Failed to fetch organizations');
+      }
+    } catch (error) {
+      console.error('Error fetching organizations:', error);
+      setAlert({ type: 'error', message: 'Error fetching organizations' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDelete = async (id) => {
     try {
       const response = await fetch(`${config.baseURL}/exam/organizations/${id}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
       });
 
       if (response.ok) {
         setAlert({ type: 'success', message: 'Organization deleted successfully!' });
-        setOrganizations(organizations.filter(org => org._id !== id));
+        // Filter by both _id and id to handle different cases
+        setOrganizations(organizations.filter(org => org._id !== id && org.id !== id));
       } else {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to delete organization');
@@ -78,6 +105,32 @@ export function OrganizationList() {
       setAlert({ type: 'error', message: error.message });
     }
   };
+
+  const handleClearShare = async (orgId) => {
+    if (!window.confirm('Are you sure you want to clear this organization\'s share?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${config.baseURL}/exam/organizations/${orgId}/clear-share`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      if (response.ok) {
+        setAlert({ type: 'success', message: 'Organization share cleared successfully!' });
+        fetchOrganizations(); // Refresh the list
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to clear share');
+      }
+    } catch (error) {
+      setAlert({ type: 'error', message: error.message });
+    }
+  };
+  
   const handleOpen = () => setOpen(!open);
   
   const handleListItemClick = (organization) => {
@@ -90,59 +143,177 @@ export function OrganizationList() {
     setSelectedOrganization(null);
   };
 
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleString();
+  };
+
   return (
-    <div className=" bg-white text-black p-8">
+    <div className="bg-white text-black p-8">
       {alert && (
-        <Alert onClose={() => setOpen(false)} color='green' className={`alert alert-${alert.type}`}>
+        <Alert 
+          color={alert.type === 'success' ? 'green' : 'red'} 
+          className="mb-4"
+          onClose={() => setAlert(null)}
+          open={true}
+        >
           {alert.message}
         </Alert>
       )}
-      <br />
-      <Typography variant="h4" color="blue-gray" className="mb-4">
-        Registered Organizations
-      </Typography>
-      <Card className="w-96">
+      
+      <div className="flex justify-between items-center mb-4">
+        <Typography variant="h4" color="blue-gray">
+          Registered Organizations
+        </Typography>
+        <Button onClick={fetchOrganizations} disabled={loading} size="sm">
+          {loading ? 'Refreshing...' : 'Refresh'}
+        </Button>
+      </div>
+      
+      <Card className="w-full max-w-2xl">
         <List>
-          {organizations.map((organization) => (
-            <ListItem
-              key={organization._id}
-              ripple={false}
-              className="py-1 pr-1 pl-4"
-              onClick={() => handleListItemClick(organization)}
-            >
-              {organization.name}
-              <ListItemSuffix>
-                <IconButton
-                  variant="text"
-                  color="blue-gray"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    confirmDelete(organization.id);
-                  }}
-                >
-                  <TrashIcon />
-                </IconButton>
-              </ListItemSuffix>
+          {organizations.length === 0 ? (
+            <ListItem>
+              <Typography color="gray" className="text-center w-full">
+                {loading ? 'Loading organizations...' : 'No organizations found'}
+              </Typography>
             </ListItem>
-          ))}
+          ) : (
+            organizations.map((organization) => (
+              <ListItem
+                key={organization._id}
+                ripple={false}
+                className="py-3 pr-1 pl-4 cursor-pointer hover:bg-gray-50"
+                onClick={() => handleListItemClick(organization)}
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Typography variant="h6" color="blue-gray">
+                      {organization.name}
+                    </Typography>
+                    <ShareStatusBadge hasShare={!!organization.share} />
+                  </div>
+                  <Typography variant="small" color="gray">
+                    ID: {organization.id || organization._id}
+                  </Typography>
+                </div>
+                
+                <ListItemSuffix className="flex gap-1">
+                  <IconButton
+                    variant="text"
+                    color="blue"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleListItemClick(organization);
+                    }}
+                    title="View Details"
+                  >
+                    <EyeIcon className="h-4 w-4" />
+                  </IconButton>
+                  
+                  {organization.share && (
+                    <IconButton
+                      variant="text"
+                      color="orange"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleClearShare(organization._id);
+                      }}
+                      title="Clear Share"
+                    >
+                      <KeyIcon className="h-4 w-4" />
+                    </IconButton>
+                  )}
+                  
+                  <IconButton
+                    variant="text"
+                    color="red"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Use _id for deletion as it's more reliable
+                      confirmDelete(organization._id);
+                    }}
+                    title="Delete Organization"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </IconButton>
+                </ListItemSuffix>
+              </ListItem>
+            ))
+          )}
         </List>
       </Card>
 
-      <Dialog size="lg" open={open} onClick={closeModal}>
-        <DialogHeader onClick={closeModal}>
-          {selectedOrganization?.name}
+      <Dialog size="lg" open={open} handler={closeModal}>
+        <DialogHeader>
+          <div className="flex items-center gap-2">
+            {selectedOrganization?.name}
+            {selectedOrganization && <ShareStatusBadge hasShare={!!selectedOrganization.share} />}
+          </div>
         </DialogHeader>
-        <DialogBody>
-          {/* <Typography variant="h6" color="blue-gray">
-            ID: {selectedOrganization?._id}
-          </Typography> */}
-          <Typography variant="h6" color="blue-gray">
-            ID: {selectedOrganization?.id}
-          </Typography>
-          <TruncatedShare share={selectedOrganization?.share} />
+        <DialogBody className="space-y-4">
+          {selectedOrganization && (
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <Typography variant="h6" color="blue-gray">Organization Name</Typography>
+                <Typography>{selectedOrganization.name}</Typography>
+              </div>
+              
+              <div>
+                <Typography variant="h6" color="blue-gray">Organization ID</Typography>
+                <Typography>{selectedOrganization.id || 'Auto-generated'}</Typography>
+              </div>
+              
+              <div>
+                <Typography variant="h6" color="blue-gray">Database ID</Typography>
+                <Typography className="font-mono text-sm">{selectedOrganization._id}</Typography>
+              </div>
+              
+              {selectedOrganization.createdAt && (
+                <div>
+                  <Typography variant="h6" color="blue-gray">Created At</Typography>
+                  <Typography>{formatDate(selectedOrganization.createdAt)}</Typography>
+                </div>
+              )}
+              
+              <div>
+                <Typography variant="h6" color="blue-gray">Share Status</Typography>
+                <div className="mt-2">
+                  <ShareStatusBadge hasShare={!!selectedOrganization.share} />
+                </div>
+              </div>
+              
+              {selectedOrganization.share ? (
+                <div>
+                  <Typography variant="h6" color="blue-gray">Share Data</Typography>
+                  <TruncatedShare share={selectedOrganization.share} />
+                  <div className="mt-2">
+                    <Button
+                      size="sm"
+                      color="orange"
+                      variant="outlined"
+                      onClick={() => {
+                        closeModal();
+                        handleClearShare(selectedOrganization._id);
+                      }}
+                    >
+                      Clear Share
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <Typography variant="h6" color="blue-gray">Share Data</Typography>
+                  <Typography color="gray">No share assigned</Typography>
+                </div>
+              )}
+            </div>
+          )}
         </DialogBody>
         <DialogFooter>
-          <Button color="red" onClick={closeModal}>
+          <Button color="blue-gray" onClick={closeModal}>
             Close
           </Button>
         </DialogFooter>

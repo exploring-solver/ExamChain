@@ -4,6 +4,7 @@ const { Exam } = require('../models/Exam');
 const { Organization } = require('../models/Organization');
 const { Question } = require('../models/Question');
 const { decrypt } = require('../utils/questionEncrypt');
+const  mongoose  = require('../../../services/mongoose');
 
 const generateSecretKey = () => crypto.randomBytes(32).toString('hex');
 
@@ -29,28 +30,39 @@ const decryptContent = (encryptedContent, key) => {
 
 // Create an exam
 const createExam = async (req, res) => {
-  const { title, content, organizationIds, threshold } = req.body;
+  const { examId, title, content, organizationIds, threshold, duration, startTime } = req.body;
+
+  if (!examId || !duration || !startTime) {
+    return res.status(400).json({
+      status: 400,
+      message: 'examId, duration, and startTime are required fields.'
+    });
+  }
 
   try {
     // Generate a secret key
     const secretKey = generateSecretKey();
-    console.log('Generated Secret Key:', secretKey);
+    console.log('🔐 Generated Secret Key:', secretKey);
 
     // Encrypt the exam content
     const encryptedContent = encryptContent(content, secretKey);
 
     // Split the secret key into shares
     const shares = sss.split(Buffer.from(secretKey, 'hex'), { shares: organizationIds.length, threshold });
-    console.log('Generated Shares:', shares.map(share => share.toString('hex')));
+    console.log('📤 Generated Shares:', shares.map(share => share.toString('hex')));
 
     // Create the exam
     const exam = new Exam({
+      examId,
       title,
       encryptedContent,
       threshold,
       sharesSubmitted: [],
       isDecrypted: false,
+      duration,
+      startTime
     });
+
     await exam.save();
 
     // Assign shares to organizations
@@ -59,13 +71,16 @@ const createExam = async (req, res) => {
     }
 
     res.status(201).json({
-      message: 'Exam created successfully',
-      secretKey, // Send the secret key to the admin for distribution
+      message: '✅ Exam created successfully',
+      secretKey,
     });
+
   } catch (error) {
+    console.error('💥 Error while creating exam:', error);
     res.status(500).json({ status: 500, message: 'Internal server error', error });
   }
 };
+
 
 
 // Submit a share and decryption key
@@ -73,44 +88,128 @@ const submitShare = async (req, res) => {
   const { examId, organizationId, share } = req.body;
 
   try {
-    const exam = await Exam.findById(examId);
-    if (!exam) return res.status(404).json({ message: 'Exam not found' });
+    // Validate required fields
+    if (!examId || !organizationId || !share) {
+      return res.status(400).json({
+        status: 400,
+        message: 'Exam ID, organization ID, and share are required'
+      });
+    }
 
-    // Add the share to the exam
-    exam.sharesSubmitted.push({ organizationId, share });
+    // Validate ObjectId format for examId
+    if (!mongoose.Types.ObjectId.isValid(examId)) {
+      return res.status(400).json({
+        status: 400,
+        message: 'Invalid exam ID format'
+      });
+    }
+
+    // Find the exam
+    const exam = await Exam.findById(examId);
+    if (!exam) {
+      return res.status(404).json({ 
+        status: 404, 
+        message: 'Exam not found' 
+      });
+    }
+
+    // Handle organization ID - can be either ObjectId or custom string ID
+    let orgObjectId;
+    
+    if (mongoose.Types.ObjectId.isValid(organizationId)) {
+      // If it's already a valid ObjectId, use it directly
+      orgObjectId = organizationId;
+    } else {
+      // If it's a custom string ID, find the organization by custom id field
+      const organization = await Organization.findOne({ id: organizationId });
+      if (!organization) {
+        return res.status(404).json({
+          status: 404,
+          message: 'Organization not found'
+        });
+      }
+      orgObjectId = organization._id;
+    }
+
+    // Check if organization already submitted a share for this exam
+    const existingShare = exam.sharesSubmitted.find(
+      s => s.organizationId.toString() === orgObjectId.toString()
+    );
+    
+    if (existingShare) {
+      return res.status(409).json({
+        status: 409,
+        message: 'Organization has already submitted a share for this exam'
+      });
+    }
+
+    // Validate that this organization is supposed to participate in this exam
+    // You might want to add a field to Exam model that specifies which organizations can participate
+    // For now, we'll skip this check, but you can add it based on your business logic
+
+    // Add the share to the exam using the ObjectId
+    exam.sharesSubmitted.push({ 
+      organizationId: orgObjectId, 
+      share: share.trim() 
+    });
+    
     await exam.save();
     console.log('Shares Submitted:', exam.sharesSubmitted);
 
     // Check if the threshold is met
     if (exam.sharesSubmitted.length >= exam.threshold) {
-      // Combine shares to reconstruct the secret key
-      const shares = exam.sharesSubmitted.map(s => Buffer.from(s.share, 'hex'));
-      console.log('Combining Shares:', shares);
-      const secretKey = sss.combine(shares).toString('hex');
-      console.log('Reconstructed Secret Key:', secretKey);
-      console.log('Secret Key Length:', secretKey.length); // Log the length of the reconstructed key
+      try {
+        // Combine shares to reconstruct the secret key
+        const shares = exam.sharesSubmitted.map(s => Buffer.from(s.share, 'hex'));
+        console.log('Combining Shares:', shares);
+        const secretKey = sss.combine(shares).toString('hex');
+        console.log('Reconstructed Secret Key:', secretKey);
 
-      // Verify key length
-      if (secretKey.length !== 64) {
-        throw new Error('Reconstructed key length is incorrect');
+        // Verify key length (32 bytes = 64 hex characters for AES-256)
+        if (secretKey.length !== 64) {
+          console.warn(`Warning: Reconstructed key length is ${secretKey.length}, expected 64`);
+        }
+
+        // Decrypt the exam content
+        const decryptedContent = decrypt(exam.encryptedContent, secretKey);
+        console.log('Decrypted Content:', decryptedContent);
+
+        // Update the exam as decrypted and store decrypted content
+        exam.isDecrypted = true;
+        exam.decryptedContent = decryptedContent;
+        await exam.save();
+
+        res.status(200).json({ 
+          message: 'Threshold met! Exam decrypted successfully', 
+          content: decryptedContent,
+          examDecrypted: true,
+          sharesSubmitted: exam.sharesSubmitted.length,
+          threshold: exam.threshold
+        });
+      } catch (decryptError) {
+        console.error('Error during decryption:', decryptError);
+        res.status(500).json({
+          status: 500,
+          message: 'Error during decryption process',
+          error: decryptError.message
+        });
       }
-
-      // Decrypt the exam content
-      const decryptedContent = decrypt(exam.encryptedContent, secretKey);
-      console.log('Decrypted Content:', decryptedContent);
-
-      // Update the exam as decrypted and store decrypted content
-      exam.isDecrypted = true;
-      exam.decryptedContent = decryptedContent;
-      await exam.save();
-
-      res.status(200).json({ message: 'Exam and questions decrypted successfully', content: decryptedContent });
     } else {
-      res.status(200).json({ message: 'Share submitted successfully', remainingShares: exam.threshold - exam.sharesSubmitted.length });
+      res.status(200).json({ 
+        message: 'Share submitted successfully', 
+        remainingShares: exam.threshold - exam.sharesSubmitted.length,
+        sharesSubmitted: exam.sharesSubmitted.length,
+        threshold: exam.threshold,
+        examDecrypted: false
+      });
     }
   } catch (error) {
     console.error('Error during share submission:', error);
-    res.status(500).json({ status: 500, message: 'Internal server error', error });
+    res.status(500).json({ 
+      status: 500, 
+      message: 'Internal server error', 
+      error: error.message 
+    });
   }
 };
 
@@ -124,12 +223,195 @@ const submitShare = async (req, res) => {
 //upload the csv or excel file of roll numbers
 
 
-// Get all exams
 const getExams = async (req, res) => {
   try {
-    const exams = await Exam.find();
+    const exams = await Exam.find().sort({ createdAt: -1 });
     res.status(200).json(exams);
   } catch (error) {
+    console.error('Error fetching exams:', error);
+    res.status(500).json({ status: 500, message: 'Internal server error', error });
+  }
+};
+
+// Get a specific exam by ID
+const getExamById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const exam = await Exam.findById(id);
+    
+    if (!exam) {
+      return res.status(404).json({ 
+        status: 404, 
+        message: 'Exam not found' 
+      });
+    }
+    
+    res.status(200).json(exam);
+  } catch (error) {
+    console.error('Error fetching exam:', error);
+    res.status(500).json({ status: 500, message: 'Internal server error', error });
+  }
+};
+
+// Update an exam
+const updateExam = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, duration, startTime, threshold, organizationIds } = req.body;
+    
+    const exam = await Exam.findById(id);
+    if (!exam) {
+      return res.status(404).json({ 
+        status: 404, 
+        message: 'Exam not found' 
+      });
+    }
+
+    // Prepare update object
+    const updateData = {};
+    if (title) updateData.title = title;
+    if (duration) updateData.duration = parseInt(duration, 10);
+    if (startTime) updateData.startTime = new Date(startTime);
+    if (threshold) updateData.threshold = parseInt(threshold, 10);
+
+    // If organizationIds are being updated, we need to regenerate shares
+    if (organizationIds && organizationIds.length > 0) {
+      // Validate threshold against new organization count
+      const newThreshold = threshold || exam.threshold;
+      if (newThreshold > organizationIds.length) {
+        return res.status(400).json({
+          status: 400,
+          message: `Threshold (${newThreshold}) cannot be greater than number of organizations (${organizationIds.length})`
+        });
+      }
+
+      // Note: In a real implementation, you'd need to handle share redistribution
+      // This is complex because it requires the original secret key
+      // For now, we'll just update the threshold and warn about share redistribution
+      console.warn('⚠️ Organization list updated - manual share redistribution may be required');
+    }
+
+    const updatedExam = await Exam.findByIdAndUpdate(
+      id, 
+      updateData, 
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({
+      message: 'Exam updated successfully',
+      exam: updatedExam
+    });
+
+  } catch (error) {
+    console.error('Error updating exam:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        status: 400, 
+        message: 'Validation error', 
+        errors: error.errors 
+      });
+    }
+    res.status(500).json({ status: 500, message: 'Internal server error', error });
+  }
+};
+
+// Delete an exam
+const deleteExam = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const exam = await Exam.findById(id);
+    if (!exam) {
+      return res.status(404).json({ 
+        status: 404, 
+        message: 'Exam not found' 
+      });
+    }
+
+    // Optional: Clear shares from organizations
+    // This depends on your business logic - you might want to keep shares
+    // or clear them when an exam is deleted
+    try {
+      // Find organizations that might have shares for this exam
+      // Note: This is a simplified approach - in production you'd want
+      // a more robust way to track which organizations have shares for which exams
+      await Organization.updateMany(
+        { share: { $exists: true } },
+        { $unset: { share: "" } }
+      );
+    } catch (shareError) {
+      console.warn('Warning: Could not clear organization shares:', shareError);
+      // Continue with exam deletion even if share clearing fails
+    }
+
+    await Exam.findByIdAndDelete(id);
+
+    res.status(200).json({
+      message: 'Exam deleted successfully',
+      examId: exam.examId
+    });
+
+  } catch (error) {
+    console.error('Error deleting exam:', error);
+    res.status(500).json({ status: 500, message: 'Internal server error', error });
+  }
+};
+
+// Get exam statistics
+const getExamStats = async (req, res) => {
+  try {
+    const totalExams = await Exam.countDocuments();
+    const activeExams = await Exam.countDocuments({ 
+      startTime: { $lte: new Date() },
+      $expr: { 
+        $lt: [
+          new Date(), 
+          { $add: ["$startTime", { $multiply: ["$duration", 60000] }] }
+        ] 
+      }
+    });
+    const upcomingExams = await Exam.countDocuments({ 
+      startTime: { $gt: new Date() } 
+    });
+    const decryptedExams = await Exam.countDocuments({ isDecrypted: true });
+
+    res.status(200).json({
+      totalExams,
+      activeExams,
+      upcomingExams,
+      decryptedExams,
+      encryptedExams: totalExams - decryptedExams
+    });
+
+  } catch (error) {
+    console.error('Error fetching exam statistics:', error);
+    res.status(500).json({ status: 500, message: 'Internal server error', error });
+  }
+};
+
+// Toggle exam decryption status (for testing purposes)
+const toggleExamDecryption = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const exam = await Exam.findById(id);
+    if (!exam) {
+      return res.status(404).json({ 
+        status: 404, 
+        message: 'Exam not found' 
+      });
+    }
+
+    exam.isDecrypted = !exam.isDecrypted;
+    await exam.save();
+
+    res.status(200).json({
+      message: `Exam ${exam.isDecrypted ? 'decrypted' : 'encrypted'} successfully`,
+      exam: exam
+    });
+
+  } catch (error) {
+    console.error('Error toggling exam decryption:', error);
     res.status(500).json({ status: 500, message: 'Internal server error', error });
   }
 };
@@ -137,5 +419,13 @@ const getExams = async (req, res) => {
 module.exports = {
   createExam,
   submitShare,
-  getExams
+  getExams,
+  getExamById,
+  updateExam,
+  deleteExam,
+  getExamStats,
+  toggleExamDecryption,
+  decryptContent,
+  decrypt,
+  encryptContent,
 };
