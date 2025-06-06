@@ -359,6 +359,17 @@ const bulkDeleteOrganizations = async (req, res) => {
   }
 };
 
+const getSharesForOrganization = async (req, res) => {
+  const { organizationId } = req.params;
+  try {
+    const org = await Organization.findById(organizationId).populate('shares.examId');
+    if (!org) return res.status(404).json({ message: 'Organization not found' });
+    res.status(200).json({ shares: org.shares });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error', error });
+  }
+};
+
 module.exports = {
   getAllOrganizations,
   getOrganizationById,
@@ -367,5 +378,6 @@ module.exports = {
   deleteOrganization,
   getOrganizationStats,
   clearOrganizationShare,
-  bulkDeleteOrganizations
+  bulkDeleteOrganizations,
+  getSharesForOrganization
 };

@@ -13,10 +13,10 @@ const Organization = mongoose.model(
       required: true,
       unique: true,
     },
-    share: {
-      type: String,
-      // required: true,
-    },
+    shares: [{
+      examId: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam' },
+      share: { type: String }
+    }],
   },
   'organizations',
 );

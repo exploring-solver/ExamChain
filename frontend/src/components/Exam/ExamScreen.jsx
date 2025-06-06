@@ -21,8 +21,18 @@ const ExamScreen = () => {
     fetchExams();
   }, []);
 
-  const handleStartExam = (examId) => {
-    navigate(`/test/${examId}`);
+  const handleStartExam = async (examId) => {
+    try {
+      const studentId = localStorage.getItem('studentId'); // or get from context/auth
+      await axios.post(`${config.baseURL}/exam/students/start-exam`, {
+        studentId,
+        examId,
+      });
+      navigate(`/test/${examId}`);
+    } catch (error) {
+      console.error('Error starting exam:', error);
+      alert('Could not start exam. Please try again.');
+    }
   };
 
   return (

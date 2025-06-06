@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const { Student } = require('../models/Student');
 const { Question } = require('../models/Question');
 const Answer = require('../models/Answer');
+const { Result } = require('../models/Result');
 
 const submitAnswers = async (req, res) => {
   const { answers } = req.body;
@@ -13,25 +14,71 @@ const submitAnswers = async (req, res) => {
       console.log('Processing answer:', answer);
 
       const { message, signature, publicKey } = answer;
-      const { questionId, answer: studentAnswer, examId } = JSON.parse(message);
+      const { questionId, answer: studentAnswer, examId, studentId } = JSON.parse(message);
       console.log('Parsed message:', { questionId, studentAnswer, examId });
 
-      // Verify the signature
-      const verify = crypto.createVerify('SHA256');
-      verify.update(message);
-      verify.end();
-      const isVerified = verify.verify(publicKey, Buffer.from(signature, 'base64'));
-      console.log('Signature verified:', isVerified);
+      // Verify the signature using RSA-PSS (matching frontend)
+      try {
+        // Ensure the publicKey is in PEM format
+        const pemPublicKey = 
+          publicKey.startsWith('-----BEGIN PUBLIC KEY-----')
+            ? publicKey
+            : `-----BEGIN PUBLIC KEY-----\n${publicKey.match(/.{1,64}/g).join('\n')}\n-----END PUBLIC KEY-----`;
 
-      if (!isVerified) {
-        console.warn('Signature verification failed for answer:', answer);
-        return res.status(400).json({ message: 'Signature verification failed' });
+        // Create a verify object for RSA-PSS
+        const verifier = crypto.createVerify('RSA-SHA256');
+        verifier.update(message);
+        verifier.end();
+
+        // For RSA-PSS, we need to use a different approach
+        // First try with the standard verify method
+        let isVerified = false;
+        try {
+          // Try standard RSA verification first (in case keys were generated differently)
+          isVerified = verifier.verify(pemPublicKey, Buffer.from(signature, 'base64'));
+        } catch (standardError) {
+          console.log('Standard RSA verification failed, trying RSA-PSS...');
+          
+          // For RSA-PSS verification, we need to use the Web Crypto API style verification
+          // But since Node.js crypto doesn't directly support RSA-PSS verify, 
+          // we'll need to use a different approach
+          
+          // Import the key as a KeyObject
+          const keyObject = crypto.createPublicKey({
+            key: pemPublicKey,
+            format: 'pem',
+            type: 'spki'
+          });
+
+          // Use the sign/verify method with PSS padding
+          const verifyObject = crypto.createVerify('sha256');
+          verifyObject.update(message);
+          verifyObject.end();
+
+          // Try with PSS padding options
+          isVerified = verifyObject.verify({
+            key: keyObject,
+            padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+            saltLength: 32, // Must match frontend saltLength
+            mgf: crypto.constants.RSA_MGF1
+          }, Buffer.from(signature, 'base64'));
+        }
+
+        console.log('Signature verified:', isVerified);
+
+        if (!isVerified) {
+          console.warn('Signature verification failed for answer:', answer);
+          return res.status(400).json({ message: 'Signature verification failed' });
+        }
+      } catch (verifyError) {
+        console.error('Error during signature verification:', verifyError);
+        return res.status(400).json({ message: 'Signature verification error', error: verifyError.message });
       }
 
       // Save the answer to the database
-      const student = await Student.findOne({ examId });
+      const student = await Student.findById(studentId);
       if (!student) {
-        console.warn('Student not found for examId:', examId);
+        console.warn('Student not found for studentId:', studentId);
         return res.status(404).json({ message: 'Student not found' });
       }
 
@@ -51,7 +98,7 @@ const submitAnswers = async (req, res) => {
     return res.status(201).json({ message: 'Answers submitted successfully' });
   } catch (error) {
     console.error('Error submitting answers:', error);
-    return res.status(500).json({ status: 500, message: 'Internal server error', error });
+    return res.status(500).json({ status: 500, message: 'Internal server error', error: error.message });
   }
 };
 
@@ -60,12 +107,20 @@ const calculateResults = async (req, res) => {
 
   try {
     const questions = await Question.find({ examId: mongoose.Types.ObjectId(examId) });
-    const answers = await Answer.find({ 'questionId.examId': mongoose.Types.ObjectId(examId) });
+    
+    // Fix the query - Answer schema likely has questionId field, not nested examId
+    const answers = await Answer.find({}).populate('questionId');
+    
+    // Filter answers for this specific exam
+    const examAnswers = answers.filter(answer => 
+      answer.questionId && answer.questionId.examId && 
+      answer.questionId.examId.equals(mongoose.Types.ObjectId(examId))
+    );
 
     const results = {};
 
-    answers.forEach((answer) => {
-      const question = questions.find(q => q._id.equals(answer.questionId));
+    examAnswers.forEach((answer) => {
+      const question = questions.find(q => q._id.equals(answer.questionId._id));
       if (!question) {
         return;
       }
@@ -88,14 +143,34 @@ const calculateResults = async (req, res) => {
       percentage: (results[studentId].correct / results[studentId].total) * 100
     }));
 
-    return res.status(200).json({ message: 'Results calculated successfully', results: finalResults });
+    for (const r of finalResults) {
+      await Result.findOneAndUpdate(
+        { studentId: r.studentId, examId },
+        { correct: r.correct, total: r.total, percentage: r.percentage },
+        { upsert: true, new: true }
+      );
+    }
+    res.status(200).json({ results: finalResults });
   } catch (error) {
     console.error('Error calculating results:', error);
-    return res.status(500).json({ status: 500, message: 'Internal server error', error });
+    return res.status(500).json({ status: 500, message: 'Internal server error', error: error.message });
+  }
+};
+
+const submitAnswer = async (req, res) => {
+  const { questionId, studentId, answer, signature, publicKey } = req.body;
+  try {
+    // Optionally: verify signature here using the same RSA-PSS method
+    const newAnswer = new Answer({ questionId, studentId, answer, signature, publicKey });
+    await newAnswer.save();
+    res.status(201).json({ message: 'Answer submitted' });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
 
 module.exports = {
   submitAnswers,
   calculateResults,
+  submitAnswer
 };

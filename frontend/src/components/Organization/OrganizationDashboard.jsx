@@ -567,6 +567,41 @@ const OrganizationDashboard = () => {
                   Questions ({questions.length})
                 </Typography>
                 <Button
+                  color="blue"
+                  onClick={async () => {
+                    const organizationId = localStorage.getItem('organizationId');
+                    const decryptionKey = prompt('Enter the decryption key for all questions:');
+                    if (!decryptionKey) return;
+                    try {
+                      const response = await fetch(`${config.baseURL}/exam/api/v2/question/decrypt-all`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        },
+                        body: JSON.stringify({
+                          organizationId,
+                          examId: selectedExam._id,
+                          decryptionKey,
+                        }),
+                      });
+                      const data = await response.json();
+                      if (response.ok) {
+                        setAlert({ type: 'success', message: data.message });
+                        fetchQuestions();
+                      } else {
+                        setAlert({ type: 'error', message: data.message || 'Failed to decrypt all questions' });
+                      }
+                    } catch (error) {
+                      setAlert({ type: 'error', message: error.message });
+                    }
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <KeyIcon className="h-4 w-4" />
+                  Decrypt All Questions
+                </Button>
+                <Button
                   onClick={() => setShowCreateQuestionDialog(true)}
                   className="flex items-center gap-2"
                   size="sm"
@@ -892,6 +927,8 @@ const OrganizationDashboard = () => {
                     <LockOpenIcon className="h-4 w-4" />
                     Decrypt Questions
                   </Button>
+
+
                 </div>
               )}
             </div>

@@ -3,9 +3,9 @@ const router = express.Router();
 const { checkIfOrganization, checkIfAuthenticated, checkIfAdmin } = require('../../middlewares/validateAuth');
 const { createQuestion, decryptQuestion, decryptAllQuestions, getAllQuestions, getQuestionsByExamId, getQuestionById, getQuestionsByOrganizationId, deleteQuestionById } = require('./controller/question');
 const { decryptQuestionsIfThresholdMet } = require('./controller/submit-share');
-const { createExam, submitShare, getExams, getExamStats, getExamById, updateExam, deleteExam, toggleExamDecryption } = require('./controller/exam');
-const { calculateResults, submitAnswers } = require('./controller/answer');
-const { getAllOrganizations, deleteOrganization, getOrganizationStats, getOrganizationById, createOrganization, updateOrganization, clearOrganizationShare, bulkDeleteOrganizations } = require('./controller/organization');
+const { createExam, submitShare, getExams, getExamStats, getExamById, updateExam, deleteExam, toggleExamDecryption, startExam } = require('./controller/exam');
+const { calculateResults, submitAnswers, submitAnswer } = require('./controller/answer');
+const { getAllOrganizations, deleteOrganization, getOrganizationStats, getOrganizationById, createOrganization, updateOrganization, clearOrganizationShare, bulkDeleteOrganizations, getSharesForOrganization } = require('./controller/organization');
 const { createStudents } = require('./controller/student');
 
 
@@ -17,7 +17,7 @@ router.post('/api/v2/secrets/submit-share', checkIfAuthenticated, checkIfOrganiz
 router.post('/api/v2/secrets/decrypt-questions', checkIfAuthenticated, checkIfOrganization, decryptQuestionsIfThresholdMet);
 
 router.post('/create-exam', checkIfAdmin, createExam);
-router.post('/api/v2/question/decrypt-all', checkIfOrganization, decryptAllQuestions);
+router.post('/api/v2/question/decrypt-all', decryptAllQuestions);
 
 //create students
 router.post('/create-students', createStudents);
@@ -73,5 +73,17 @@ router.get('/questions/:organizationId', getQuestionsByOrganizationId);
 router.get('/questions/exam/:examId', getQuestionsByExamId);
 router.get('/questions/:questionId', getQuestionById);
 router.delete('/questions/:questionId', deleteQuestionById);
+
+// Get all shares for an organization
+router.get('/organizations/:organizationId/shares', checkIfOrganization, getSharesForOrganization);
+
+// Start an exam
+router.post('/exams/start', checkIfAdmin, startExam);
+
+// Student submits an answer (signed)
+router.post('/answers/submit', checkIfAuthenticated, submitAnswer);
+
+// Calculate and store results for an exam
+router.post('/results/calculate', checkIfAdmin, calculateResults);
 
 module.exports = router;

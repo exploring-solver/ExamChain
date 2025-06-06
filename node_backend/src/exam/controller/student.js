@@ -1,6 +1,3 @@
-
-
-
 //TODO: submit answer and ansure encryption with student details and public key
 
 
@@ -97,6 +94,31 @@ const createStudents = async (req, res) => {
   }
 };
 
+const startStudentExam = async (req, res) => {
+  const { studentId, examId } = req.body;
+  if (!studentId || !examId) {
+    return res.status(400).json({ message: 'studentId and examId are required' });
+  }
+  console.log('Starting exam for student:', studentId, 'with examId:', examId);
+  try {
+    const student = await Student.findById(studentId);
+    console.log('Found student:', student);
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    const updatedStudent = await Student.findByIdAndUpdate(
+      studentId,
+      { examId },
+      { new: true }
+    );
+
+    res.status(200).json({ message: 'Exam started for student', student: updatedStudent });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
 module.exports = {
   createStudents,
+  startStudentExam,
 };

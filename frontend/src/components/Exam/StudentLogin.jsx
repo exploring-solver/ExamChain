@@ -66,7 +66,7 @@ const StudentLogin = () => {
                 password,
             });
 
-            const { token } = loginResponse.data;
+            const { token, user } = loginResponse.data;
 
             if (token) {
                 localStorage.setItem('token', token);
@@ -87,9 +87,10 @@ const StudentLogin = () => {
                     },
                 });
 
-                const { enrollmentNumber } = studentDetailsResponse.data;
+                const { enrollmentNumber ,_id} = studentDetailsResponse.data;
                 localStorage.setItem('username', username);
                 localStorage.setItem('enrollmentNumber', enrollmentNumber);
+                localStorage.setItem('studentId', _id);
 
                 // Generate key pair and send public key to server
                 const publicKey = await generateKeyPair();

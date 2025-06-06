@@ -32,26 +32,19 @@ const decryptContent = (encryptedContent, key) => {
 const createExam = async (req, res) => {
   const { examId, title, content, organizationIds, threshold, duration, startTime } = req.body;
 
-  if (!examId || !duration || !startTime) {
+  if (!examId || !duration || !startTime || !organizationIds || organizationIds.length === 0) {
     return res.status(400).json({
       status: 400,
-      message: 'examId, duration, and startTime are required fields.'
+      message: 'examId, duration, startTime, and organizationIds are required fields.'
     });
   }
 
   try {
-    // Generate a secret key
     const secretKey = generateSecretKey();
-    console.log('🔐 Generated Secret Key:', secretKey);
-
-    // Encrypt the exam content
     const encryptedContent = encryptContent(content, secretKey);
-
-    // Split the secret key into shares
     const shares = sss.split(Buffer.from(secretKey, 'hex'), { shares: organizationIds.length, threshold });
-    console.log('📤 Generated Shares:', shares.map(share => share.toString('hex')));
 
-    // Create the exam
+    // Create the exam with organizations
     const exam = new Exam({
       examId,
       title,
@@ -60,23 +53,27 @@ const createExam = async (req, res) => {
       sharesSubmitted: [],
       isDecrypted: false,
       duration,
-      startTime
+      startTime,
+      organizations: organizationIds, // Save assigned organizations
+      status: 'created'
     });
 
     await exam.save();
 
-    // Assign shares to organizations
+    // Assign shares to organizations (store in their shares array)
     for (let i = 0; i < organizationIds.length; i++) {
-      await Organization.findByIdAndUpdate(organizationIds[i], { share: shares[i].toString('hex') });
+      await Organization.findByIdAndUpdate(
+        organizationIds[i],
+        { $push: { shares: { examId: exam._id, share: shares[i].toString('hex') } } }
+      );
     }
 
     res.status(201).json({
       message: '✅ Exam created successfully',
-      secretKey,
+      examId: exam._id
     });
 
   } catch (error) {
-    console.error('💥 Error while creating exam:', error);
     res.status(500).json({ status: 500, message: 'Internal server error', error });
   }
 };
@@ -88,7 +85,6 @@ const submitShare = async (req, res) => {
   const { examId, organizationId, share } = req.body;
 
   try {
-    // Validate required fields
     if (!examId || !organizationId || !share) {
       return res.status(400).json({
         status: 400,
@@ -96,40 +92,21 @@ const submitShare = async (req, res) => {
       });
     }
 
-    // Validate ObjectId format for examId
-    if (!mongoose.Types.ObjectId.isValid(examId)) {
-      return res.status(400).json({
-        status: 400,
-        message: 'Invalid exam ID format'
-      });
-    }
-
-    // Find the exam
     const exam = await Exam.findById(examId);
     if (!exam) {
-      return res.status(404).json({ 
-        status: 404, 
-        message: 'Exam not found' 
+      return res.status(404).json({ status: 404, message: 'Exam not found' });
+    }
+
+    // Only allow assigned organizations to submit shares
+    if (!exam.organizations.map(id => id.toString()).includes(organizationId.toString())) {
+      return res.status(403).json({
+        status: 403,
+        message: 'Organization not assigned to this exam'
       });
     }
 
-    // Handle organization ID - can be either ObjectId or custom string ID
-    let orgObjectId;
-    
-    if (mongoose.Types.ObjectId.isValid(organizationId)) {
-      // If it's already a valid ObjectId, use it directly
-      orgObjectId = organizationId;
-    } else {
-      // If it's a custom string ID, find the organization by custom id field
-      const organization = await Organization.findOne({ id: organizationId });
-      if (!organization) {
-        return res.status(404).json({
-          status: 404,
-          message: 'Organization not found'
-        });
-      }
-      orgObjectId = organization._id;
-    }
+    // Convert organizationId to ObjectId for comparison and storage
+    const orgObjectId = mongoose.Types.ObjectId(organizationId);
 
     // Check if organization already submitted a share for this exam
     const existingShare = exam.sharesSubmitted.find(
@@ -142,10 +119,6 @@ const submitShare = async (req, res) => {
         message: 'Organization has already submitted a share for this exam'
       });
     }
-
-    // Validate that this organization is supposed to participate in this exam
-    // You might want to add a field to Exam model that specifies which organizations can participate
-    // For now, we'll skip this check, but you can add it based on your business logic
 
     // Add the share to the exam using the ObjectId
     exam.sharesSubmitted.push({ 
@@ -416,6 +389,21 @@ const toggleExamDecryption = async (req, res) => {
   }
 };
 
+const startExam = async (req, res) => {
+  const { examId } = req.body;
+  try {
+    const exam = await Exam.findByIdAndUpdate(
+      examId,
+      { status: 'started', startTime: new Date() },
+      { new: true }
+    );
+    if (!exam) return res.status(404).json({ message: 'Exam not found' });
+    res.status(200).json({ message: 'Exam started', exam });
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error', error });
+  }
+};
+
 module.exports = {
   createExam,
   submitShare,
@@ -428,4 +416,5 @@ module.exports = {
   decryptContent,
   decrypt,
   encryptContent,
+  startExam,
 };

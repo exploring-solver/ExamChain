@@ -15,6 +15,7 @@ import TestWindow from './components/Exam/TestWindow';
 import GuidelinesPage from './components/Exam/GuidelinesPage';
 import ExamPage from './components/Exam/ExamPage';
 import ExamScreen from './components/Exam/ExamScreen';
+import ResultsPage from './components/Exam/ResultsPage';
 
 const App = () => {
   return (
@@ -34,6 +35,7 @@ const App = () => {
           <Route path="/guidelines/:examId" element={<GuidelinesPage />} />
           {/* <Route path="/exam/:examId" element={<TestWindow />} /> */}
           <Route path="/test/:examId" element={<ExamPage/>} />
+          <Route path="/results/:examId" element={<ResultsPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

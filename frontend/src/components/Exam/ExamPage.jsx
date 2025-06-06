@@ -49,11 +49,12 @@ const ExamPage = () => {
   const handleSubmit = async () => {
     try {
       const privateKey = localStorage.getItem('privateKey');
-      const publicKey = localStorage.getItem('publicKey'); // Ensure the public key is retrieved or generated
+      const publicKey = localStorage.getItem('publicKey');
+      const studentId = localStorage.getItem('studentId'); // <-- get studentId
 
       const answers = await Promise.all(
         Object.entries(userAnswers).map(async ([questionId, answer]) => {
-          const message = JSON.stringify({ questionId, answer, examId });
+          const message = JSON.stringify({ questionId, answer, examId, studentId }); // include studentId
           const signature = await signMessage(message, privateKey);
 
           return {
@@ -67,31 +68,44 @@ const ExamPage = () => {
       await axios.post(`${config.baseURL}/exam/submit`, { answers });
 
       console.log('Answers submitted successfully');
-      navigate('/results'); // Navigate to a results page or confirmation page
+      navigate('/results');
     } catch (error) {
       console.error('Error submitting answers:', error);
     }
   };
 
+  // Fixed signMessage function to use RSASSA-PKCS1-v1_5 (matches backend)
   const signMessage = async (message, privateKeyBase64) => {
-    const privateKeyArrayBuffer = Uint8Array.from(atob(privateKeyBase64), c => c.charCodeAt(0)).buffer;
-    const cryptoKey = await crypto.subtle.importKey(
-      'pkcs8',
-      privateKeyArrayBuffer,
-      { name: 'RSA-PSS', hash: 'SHA-256' },
-      false,
-      ['sign']
-    );
+    try {
+      const privateKeyArrayBuffer = Uint8Array.from(atob(privateKeyBase64), c => c.charCodeAt(0)).buffer;
+      
+      // Use RSASSA-PKCS1-v1_5 instead of RSA-PSS to match backend
+      const cryptoKey = await crypto.subtle.importKey(
+        'pkcs8',
+        privateKeyArrayBuffer,
+        {
+          name: 'RSASSA-PKCS1-v1_5', // Changed from RSA-PSS
+          hash: 'SHA-256'
+        },
+        false,
+        ['sign']
+      );
 
-    const encoder = new TextEncoder();
-    const data = encoder.encode(message);
-    const signature = await crypto.subtle.sign(
-      { name: 'RSA-PSS', saltLength: 32 },
-      cryptoKey,
-      data
-    );
+      const encoder = new TextEncoder();
+      const data = encoder.encode(message);
+      
+      // Sign using RSASSA-PKCS1-v1_5
+      const signature = await crypto.subtle.sign(
+        'RSASSA-PKCS1-v1_5', // Changed from RSA-PSS
+        cryptoKey,
+        data
+      );
 
-    return btoa(String.fromCharCode(...new Uint8Array(signature)));
+      return btoa(String.fromCharCode(...new Uint8Array(signature)));
+    } catch (error) {
+      console.error('Error signing message:', error);
+      throw error;
+    }
   };
 
   return (
@@ -100,7 +114,7 @@ const ExamPage = () => {
         Exam
       </Typography>
       <Typography variant="h6" color="red" className="mb-6">
-        Time Remaining: {`${Math.floor(timer / 60)}:${timer % 60}`}
+        Time Remaining: {`${Math.floor(timer / 60)}:${timer % 60 < 10 ? '0' : ''}${timer % 60}`}
       </Typography>
       <div className="flex flex-wrap justify-center gap-6">
         {questions.map((question) => (
