@@ -7,6 +7,7 @@ const { createExam, submitShare, getExams, getExamStats, getExamById, updateExam
 const { calculateResults, submitAnswers, submitAnswer } = require('./controller/answer');
 const { getAllOrganizations, deleteOrganization, getOrganizationStats, getOrganizationById, createOrganization, updateOrganization, clearOrganizationShare, bulkDeleteOrganizations, getSharesForOrganization } = require('./controller/organization');
 const { createStudents } = require('./controller/student');
+const { getResultsByExam } = require('./controller/result');
 
 
 router.post('/api/v2/question/create', checkIfOrganization, createQuestion);
@@ -84,6 +85,9 @@ router.post('/exams/start', checkIfAdmin, startExam);
 router.post('/answers/submit', checkIfAuthenticated, submitAnswer);
 
 // Calculate and store results for an exam
-router.post('/results/calculate', checkIfAdmin, calculateResults);
+router.post('/results/calculate', calculateResults);
+
+// Get results by exam ID
+router.get('/results/:examId', getResultsByExam);
 
 module.exports = router;

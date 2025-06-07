@@ -16,6 +16,7 @@ import GuidelinesPage from './components/Exam/GuidelinesPage';
 import ExamPage from './components/Exam/ExamPage';
 import ExamScreen from './components/Exam/ExamScreen';
 import ResultsPage from './components/Exam/ResultsPage';
+import AllExamsResultsPage from './components/Exam/AllExamsResultsPage';
 
 const App = () => {
   return (
@@ -36,6 +37,7 @@ const App = () => {
           {/* <Route path="/exam/:examId" element={<TestWindow />} /> */}
           <Route path="/test/:examId" element={<ExamPage/>} />
           <Route path="/results/:examId" element={<ResultsPage />} />
+          <Route path="/all-exams-results" element={<AllExamsResultsPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

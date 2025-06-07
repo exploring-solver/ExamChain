@@ -17,6 +17,11 @@ const NavList = () => (
       </Link>
     </Typography>
     <Typography as="li" variant="small" color="blue-gray" className="p-1 font-medium">
+      <Link to="/all-exams-results" className="flex items-center hover:text-blue-500 transition-colors">
+        Results
+      </Link>
+    </Typography>
+    <Typography as="li" variant="small" color="blue-gray" className="p-1 font-medium">
       <Link to="/student" className="flex items-center hover:text-blue-500 transition-colors">
         Student
       </Link>
@@ -46,9 +51,9 @@ const NavList = () => (
 
 const AppNavbar = () => {
   const [isNavOpen, setIsNavOpen] = useState(false);
- 
+
   const toggleIsNavOpen = () => setIsNavOpen((cur) => !cur);
- 
+
   React.useEffect(() => {
     window.addEventListener(
       "resize",
